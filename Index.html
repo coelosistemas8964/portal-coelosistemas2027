@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--navy:#123b5d;--blue:#176b87;--ink:#173042;--muted:#637987;--line:#dce5ea;--bg:#f3f7f9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px Arial,sans-serif;color:var(--ink)}
+header{background:var(--navy);color:white;padding:18px 5vw;display:flex;justify-content:space-between;align-items:center}
+.brand{font-weight:700;letter-spacing:.3px}.brand small{display:block;font-weight:400;opacity:.8;margin-top:4px}
+main{max-width:1080px;margin:36px auto;padding:0 18px}.layout{display:grid;grid-template-columns:1fr 420px;gap:30px;align-items:center}
+.intro h1{font-size:38px;line-height:1.12;margin:10px 0}.intro p{color:var(--muted);line-height:1.6;max-width:560px}
+.card{background:white;border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:0 8px 28px #1730420d}
+.tabs{display:flex;gap:10px;margin-bottom:20px}.tabs button{flex:1;background:#edf3f6;color:var(--navy)}
+button{border:0;border-radius:9px;padding:12px 16px;background:var(--blue);color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#edf3f6;color:var(--navy)}button:disabled{opacity:.5;cursor:not-allowed}
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}input,textarea,select{width:100%;padding:12px;border:1px solid #cbd8df;border-radius:8px;font:inherit;background:white}
+.msg{min-height:24px;color:var(--blue);line-height:1.4}.hidden{display:none!important}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:24px}
+.module{border:1px solid var(--line);border-radius:13px;padding:20px;background:white}
+.module h3{margin:0 0 8px;color:var(--navy)}.module p{color:var(--muted);font-size:13px;min-height:38px}
+.notice{margin-top:18px;padding:14px;border-left:4px solid #d69e36;background:#fff9e9;border-radius:8px;color:#6b562b;font-size:13px;line-height:1.5}
+footer{text-align:center;color:#7b8c96;padding:25px;font-size:12px}
+@media(max-width:760px){.layout{grid-template-columns:1fr}.intro h1{font-size:31px}main{margin:22px auto}}
+</style></head><body>
+<header><div class="brand">COELO <small>Portal de Gestão de Apontamento</small></div><div id="userBadge"></div></header>
+<main>
+<section id="auth" class="layout">
+ <div class="intro"><small>PORTAL CORPORATIVO · STU/REC</small><h1>Gestão de<br>Apontamento</h1>
+ <p>Acesso integrado aos módulos de Solicitação de Abono de Ponto (SAP) e Solicitação de Folga do TRE, com permissões definidas pela Base Central COELO.</p></div>
+ <div class="card">
+  <div class="tabs"><button id="tabLogin">Entrar</button><button id="tabFirst" class="secondary">Primeiro acesso</button></div>
+  <form id="loginForm"><label>E-mail institucional</label><input id="email" type="email" required><label>Senha</label><input id="password" type="password" required><button style="width:100%;margin-top:16px">Acessar portal</button></form>
+  <form id="firstForm" class="hidden"><label>Matrícula ou e-mail institucional</label><input id="identifier" required><button type="button" id="sendCode" style="width:100%;margin-top:12px">Enviar código</button>
+   <label>Código recebido</label><input id="otp" inputmode="numeric" maxlength="6">
+   <label>Nova senha (mínimo 8 caracteres)</label><input id="newPass" type="password" minlength="8">
+   <label>Confirmar senha</label><input id="confirmPass" type="password" minlength="8">
+   <label><input id="confirmData" type="checkbox" style="width:auto"> Confirmo que conferi meus dados cadastrais e solicito correções, se necessário, no campo abaixo.</label>
+   <textarea id="obs" placeholder="Correções cadastrais ou observações (opcional)" rows="2"></textarea>
+   <button style="width:100%;margin-top:12px">Confirmar dados e concluir primeiro acesso</button></form>
+  <p class="msg" id="message"></p>
+ </div>
+</section>
+<section id="home" class="hidden">
+ <div class="topline"><div><small>ÁREA DO USUÁRIO</small><h2 id="welcome"></h2><div id="profile"></div></div><button class="secondary" id="logout">Sair</button></div>
+ <div class="modules" id="modules"></div>
+ <div class="notice">A plataforma está em fase de implantação e homologação. A exibição de um módulo não substitui a validação de permissões no servidor. Nenhum fluxo deve ser utilizado operacionalmente antes da homologação e ativação formal.</div>
+ <section id="adminPanel" class="card hidden" style="margin-top:22px"><h3>Validação cadastral pendente</h3><div id="pending"></div></section>
+ <section id="modulePanel" class="card hidden" style="margin-top:22px">
+  <div class="topline"><div><small>MÓDULO</small><h2 id="moduleTitle"></h2></div><button class="secondary" id="backHome">Voltar ao portal</button></div>
+  <div id="moduleContent"></div>
+ </section>
+</section>
+</main><footer>Portal COELO · Ambiente de homologação</footer>
+<script>
+let token='',currentUser=null;
+const $=id=>document.getElementById(id);
+function showMessage(t,bad=false){$('message').textContent=t;$('message').style.color=bad?'#b33':'#176b87'}
+$('tabLogin').onclick=()=>{$('loginForm').classList.remove('hidden');$('firstForm').classList.add('hidden');$('tabLogin').classList.remove('secondary');$('tabFirst').classList.add('secondary');showMessage('')};
+$('tabFirst').onclick=()=>{$('firstForm').classList.remove('hidden');$('loginForm').classList.add('hidden');$('tabFirst').classList.remove('secondary');$('tabLogin').classList.add('secondary');showMessage('')};
+$('loginForm').onsubmit=async e=>{e.preventDefault();try{const r=await call('apiLogin',$('email').value,$('password').value);token=r.token;currentUser=r.user;renderHome(r.modules||[]);}catch(x){showMessage(x.message,true)}finally{$('password').value=''}};
+$('sendCode').onclick=async()=>{try{const r=await call('apiFirstAccessStart',$('identifier').value);showMessage(r.message)}catch(x){showMessage(x.message,true)}};
+$('firstForm').onsubmit=async e=>{e.preventDefault();try{const r=await call('apiFirstAccessComplete',$('identifier').value,$('otp').value,$('newPass').value,$('confirmPass').value,{confirmado:$('confirmData').checked,observacao:$('obs').value});showMessage(r.message);$('firstForm').reset()}catch(x){showMessage(x.message,true)}};
+$('logout').onclick=async()=>{try{await call('apiLogout',token)}finally{token='';currentUser=null;$('home').classList.add('hidden');$('auth').classList.remove('hidden');$('userBadge').textContent=''}};
+$('backHome').onclick=()=>{$('modulePanel').classList.add('hidden');$('modules').classList.remove('hidden');$('adminPanel').classList.toggle('hidden',currentUser.perfilId!=='ADM')};
+
+function call(name,...args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||e)))[name](...args))}
+function renderHome(modules){$('auth').classList.add('hidden');$('home').classList.remove('hidden');$('welcome').textContent='Olá, '+currentUser.nome;$('profile').textContent='Perfil: '+currentUser.perfilId;$('userBadge').textContent=currentUser.email;
+ const items={SAP:['Solicitação de Abono de Ponto','Consultar e tramitar solicitações de abono.'],TRE:['Solicitação de Folga do TRE','Solicitar folgas e acompanhar aprovação e assinatura.']};
+ $('modules').innerHTML=modules.filter(m=>items[m]).map(m=>`<article class="module"><h3>${m}</h3><p>${items[m][0]} — ${items[m][1]}</p><button onclick="openModule('${m}')">Acessar módulo</button></article>`).join('')||'<p>Nenhum módulo operacional liberado para este perfil.</p>';
+ if(currentUser.perfilId==='ADM')loadPending();
+}
+async function openModule(m){
+ $('modules').classList.add('hidden');$('adminPanel').classList.add('hidden');$('modulePanel').classList.remove('hidden');
+ $('moduleTitle').textContent=m==='SAP'?'Solicitação de Abono de Ponto':'Solicitação de Folga do TRE';
+ $('moduleContent').innerHTML='<p>Carregando dados autorizados...</p>';
+ try{
+  const rows=await call(m==='SAP'?'apiSapQueue':'apiTreQueue',token);
+  if(!rows.length){$('moduleContent').innerHTML='<p>Não há solicitações disponíveis para consulta neste momento.</p>';return;}
+  const canDecide=['SUP','SUPTEC','ADM'].includes(currentUser.perfilId);
+  const canSign=m==='TRE'&&currentUser.perfilId==='COORD';
+  $('moduleContent').innerHTML='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><tr><th>ID</th><th>Solicitante</th><th>Data</th><th>Status</th><th>Ações</th></tr>'+
+   rows.map(r=>`<tr><td>${safe(r.ID_SOLICITACAO)}</td><td>${safe(r.NOME_SOLICITANTE||r.EMAIL_SOLICITANTE)}</td><td>${safe(r.DATA_CRIACAO)}</td><td>${safe(r.STATUS)}</td><td>${canDecide&&['SUBMETIDA','EM_ANALISE','DEVOLVIDA'].includes(r.STATUS)?`<button onclick="decideRequest('${m}','${safe(r.ID_SOLICITACAO)}','APROVAR')">Aprovar</button> <button class="secondary" onclick="decideRequest('${m}','${safe(r.ID_SOLICITACAO)}','REPROVAR')">Reprovar</button>`:''}${canSign&&r.STATUS==='AGUARDANDO_ASSINATURA_COORDENADOR'?`<button onclick="signTre('${safe(r.ID_SOLICITACAO)}')">Assinar</button>`:''}</td></tr>`).join('')+'</table></div>';
+  if(m==='SAP')$('moduleContent').innerHTML+='<div class="notice">No SAP, o fluxo termina com a decisão do Supervisor ou Supervisor Técnico. Não há assinatura do Coordenador.</div>';
+  if(m==='TRE')$('moduleContent').innerHTML+='<div class="notice">No TRE, a aprovação/reprovação e a assinatura são etapas distintas. Após aprovação, a solicitação segue para assinatura do Coordenador.</div>';
+  $('moduleContent').innerHTML+='<p class="notice">O formulário completo de abertura e os documentos gerados serão incorporados após o mapeamento dos campos e a migração/homologação dos dados atuais.</p>';
+ }catch(e){$('moduleContent').innerHTML='<p class="msg">'+safe(e.message)+'</p>'}
+}
+async function decideRequest(m,id,decision){const obs=prompt('Observação da decisão (opcional):')||'';try{await call(m==='SAP'?'apiSapDecide':'apiTreDecide',token,id,decision,obs);openModule(m)}catch(e){alert(e.message)}}
+async function signTre(id){if(!confirm('Confirmar assinatura do documento TRE?'))return;try{await call('apiTreSign',token,id);openModule('TRE')}catch(e){alert(e.message)}}
+function safe(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function loadPending(){try{
+ const rows=await call('apiAdminPendingUsers',token);$('adminPanel').classList.remove('hidden');
+ $('pending').innerHTML=rows.length?rows.map(u=>`<div style="border-top:1px solid #ddd;padding:12px 0">
+ <b>${safe(u.nome)}</b> — ${safe(u.matricula)} — ${safe(u.email)}<br><small>${safe(u.status)}</small>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+ <select id="prof_${safe(u.id)}"><option value="">Selecione perfil</option><option value="COL">Colaborador</option><option value="SUP">Supervisor</option><option value="SUPTEC">Supervisor Técnico</option><option value="COORD">Coordenador</option><option value="ADM">Administrador</option></select>
+ <button onclick="approveUser('${safe(u.id)}','APROVAR')">Aprovar</button><button class="secondary" onclick="approveUser('${safe(u.id)}','REJEITAR')">Rejeitar</button></div></div>`).join(''):'Nenhum cadastro pendente.'
+ }catch(e){$('adminPanel').classList.add('hidden')}}
+async function approveUser(id,decision){const profile=$('prof_'+id)?.value||'';if(decision==='APROVAR'&&!profile){alert('Selecione o perfil.');return}const obs=prompt('Observação da validação (opcional):')||'';try{await call('apiAdminApproveUser',token,id,profile,decision,obs);loadPending()}catch(e){alert(e.message)}}
+</script></body></html>
